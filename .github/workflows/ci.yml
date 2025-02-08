@@ -5,7 +5,7 @@ on:
     branches:
       - main
     tags:
-      - "v*.*.*"
+      - "v*.*.*" # Trigger on version tags, e.g., v1.0.0
   pull_request:
 
 jobs:
@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         os: [linux, darwin]
-        arch: [amd64, arm64, armv7l] # Adjust as needed for your targets.
+        arch: [amd64, arm64, armv7l] # Adjust as needed.
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -34,7 +34,7 @@ jobs:
         run: go test ./...
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}-${{ matrix.arch }}
           path: bootstrap-${{ matrix.os }}-${{ matrix.arch }}
@@ -51,8 +51,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Download build artifact
-        uses: actions/download-artifact@v3
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
         with:
           path: ./artifacts
 
@@ -65,7 +65,7 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Release Asset
+      - name: Upload Release Assets
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -84,7 +84,6 @@ jobs:
 
       - name: Generate available roles documentation
         run: |
-          # Query the GitHub API for the contents of the 'roles' directory in the ansible repo.
           curl -sSL "https://api.github.com/repos/sparkleHazard/ansible/contents/roles" | jq -r '.[].name' | sort > ROLES.md
 
       - name: Commit and push updated ROLES.md
