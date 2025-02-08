@@ -5,7 +5,7 @@ on:
     branches:
       - main
     tags:
-      - "v*.*.*" # Trigger on version tags, e.g., v1.0.0
+      - "v*.*.*" # Trigger on version tags, e.g. v1.0.0
   pull_request:
 
 jobs:
@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         os: [linux, darwin]
-        arch: [amd64, arm64, armv7l] # Adjust as needed.
+        arch: [amd64, arm64, armv7l]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -25,9 +25,15 @@ jobs:
           go-version: 1.18
 
       - name: Build binary
+        env:
+          GOOS: ${{ matrix.os }}
+          # For armv7l, map to "arm" and set GOARM=7; otherwise, use matrix.arch.
+          GOARCH: ${{ contains(matrix.arch, 'armv7l') && 'arm' || matrix.arch }}
+          GOARM: ${{ contains(matrix.arch, 'armv7l') && '7' || '' }}
         run: |
           output="bootstrap-${{ matrix.os }}-${{ matrix.arch }}"
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o $output .
+          echo "Building for OS: $GOOS, ARCH: $GOARCH, GOARM: $GOARM"
+          go build -o $output .
           ls -l $output
 
       - name: Run tests
@@ -65,7 +71,7 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Release Assets
+      - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -84,6 +90,7 @@ jobs:
 
       - name: Generate available roles documentation
         run: |
+          # Query the GitHub API for the contents of the 'roles' directory in the ansible repo.
           curl -sSL "https://api.github.com/repos/sparkleHazard/ansible/contents/roles" | jq -r '.[].name' | sort > ROLES.md
 
       - name: Commit and push updated ROLES.md
