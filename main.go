@@ -153,8 +153,8 @@ func ensureHomebrew() {
 		return
 	}
 	log("Homebrew is not installed. Installing Homebrew...")
-	// Run the official Homebrew installation script.
-	cmd := exec.Command("/bin/bash", "-c", "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)")
+	// Pipe the output of curl directly into bash.
+	cmd := exec.Command("/bin/bash", "-c", "curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | /bin/bash")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
