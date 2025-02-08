@@ -13,8 +13,19 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [linux, darwin]
-        arch: [amd64, arm64, armv7l]
+        include:
+          # Linux builds.
+          - os: linux
+            arch: amd64
+          - os: linux
+            arch: arm64
+          - os: linux
+            arch: armv7l
+          # Darwin builds.
+          - os: darwin
+            arch: amd64
+          - os: darwin
+            arch: arm64
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -27,7 +38,7 @@ jobs:
       - name: Build binary
         env:
           GOOS: ${{ matrix.os }}
-          # For armv7l, map to "arm" and set GOARM=7; otherwise, use matrix.arch.
+          # For Linux armv7l, map to GOARCH=arm and set GOARM=7; for other architectures, use the matrix value.
           GOARCH: ${{ contains(matrix.arch, 'armv7l') && 'arm' || matrix.arch }}
           GOARM: ${{ contains(matrix.arch, 'armv7l') && '7' || '' }}
         run: |
@@ -51,8 +62,19 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     strategy:
       matrix:
-        os: [linux, darwin]
-        arch: [amd64, arm64, armv7l]
+        include:
+          # Linux release artifacts.
+          - os: linux
+            arch: amd64
+          - os: linux
+            arch: arm64
+          - os: linux
+            arch: armv7l
+          # Darwin release artifacts.
+          - os: darwin
+            arch: amd64
+          - os: darwin
+            arch: arm64
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
