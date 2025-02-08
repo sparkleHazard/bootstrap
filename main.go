@@ -42,6 +42,11 @@ func main() {
 	osID := detectOS()
 	log(fmt.Sprintf("Detected OS: %s", osID))
 
+	// For macOS, ensure Homebrew is installed.
+	if osID == "darwin" {
+		ensureHomebrew()
+	}
+
 	// 4. Prerequisite checks
 	ensureSudo(osID)
 	ensureCommandInstalled(osID, "curl")
@@ -51,12 +56,11 @@ func main() {
 	ensureAnsible(osID)
 	ensureGh(osID)
 
-	// 5. If role == keyserver, handle GitHub key
+	// 5. If role == keyserver, handle GitHub key; otherwise, fetch private key via rsync.
 	if role == "keyserver" {
 		ensureGhAuth()
 		manageSSHKeyForGitHub()
 	} else {
-		// If role != keyserver, fetch private key via rsync
 		fetchGithubPrivateKey()
 	}
 
@@ -80,7 +84,6 @@ func log(msg string) {
 }
 
 // runCmd runs a command on the host system, streaming its output.
-// It does not provide elevated permissions; see runCmdSudo for that.
 func runCmd(name string, args ...string) error {
 	if verbose {
 		log(fmt.Sprintf("Running: %s %s", name, strings.Join(args, " ")))
@@ -92,34 +95,24 @@ func runCmd(name string, args ...string) error {
 }
 
 // runCmdSudo wraps runCmd in "sudo" unless we are already root.
-// Since we want to run as a non-root user, this effectively always prepends "sudo".
 func runCmdSudo(name string, args ...string) error {
-	// If we're not root, we need "sudo".
 	if os.Geteuid() != 0 {
-		// Prepend the original command to the front of args
 		newArgs := append([]string{name}, args...)
 		return runCmd("sudo", newArgs...)
 	}
-	// If we *were* root, just run normally (unlikely in your scenario).
 	return runCmd(name, args...)
 }
 
-// detectOS attempts to read /etc/os-release and parse an `ID=` line.
-// If it fails, it falls back to checking runtime on Darwin for macOS, etc.
+// detectOS attempts to read /etc/os-release or check for Darwin.
 func detectOS() string {
-	// Quick check for Darwin
 	if _, err := os.Stat("/System/Library/CoreServices/SystemVersion.plist"); err == nil {
 		return "darwin"
 	}
-
-	// Try /etc/os-release
 	f, err := os.Open("/etc/os-release")
 	if err != nil {
-		// Fallback unknown
 		return "unknown"
 	}
 	defer f.Close()
-
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -151,7 +144,26 @@ func ensureSSHDirectory() {
 	}
 }
 
-// ensureSudo checks if sudo is installed. If not, attempts to install it with runCmdSudo.
+// ensureHomebrew ensures Homebrew is installed on macOS.
+func ensureHomebrew() {
+	if _, err := exec.LookPath("brew"); err == nil {
+		if verbose {
+			log("Homebrew is already installed.")
+		}
+		return
+	}
+	log("Homebrew is not installed. Installing Homebrew...")
+	// Run the official Homebrew installation script.
+	cmd := exec.Command("/bin/bash", "-c", "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		log("Failed to install Homebrew: " + err.Error())
+		os.Exit(1)
+	}
+}
+
+// ensureSudo checks if sudo is installed, and attempts to install it if not.
 func ensureSudo(osID string) {
 	if _, err := exec.LookPath("sudo"); err == nil {
 		if verbose {
@@ -160,7 +172,6 @@ func ensureSudo(osID string) {
 		return
 	}
 	log("sudo not found. Attempting to install...")
-
 	switch osID {
 	case "ubuntu", "debian":
 		runCmdSudo("apt-get", "update")
@@ -170,8 +181,7 @@ func ensureSudo(osID string) {
 	case "centos", "redhat":
 		runCmdSudo("yum", "install", "-y", "sudo")
 	case "darwin":
-		log("Warning: Attempting to install sudo on macOS with Homebrew (typically already available).")
-		// brew usually doesn’t need sudo
+		log("Warning: Installing sudo on macOS via Homebrew (if needed).")
 		runCmd("brew", "install", "sudo")
 	default:
 		log("Unsupported OS for automatic sudo installation. Install sudo manually.")
@@ -179,7 +189,7 @@ func ensureSudo(osID string) {
 	}
 }
 
-// ensureCommandInstalled checks if a command is installed and tries to install if it isn't.
+// ensureCommandInstalled checks if a command is installed and installs it if not.
 func ensureCommandInstalled(osID, cmdName string) {
 	if _, err := exec.LookPath(cmdName); err == nil {
 		if verbose {
@@ -187,9 +197,7 @@ func ensureCommandInstalled(osID, cmdName string) {
 		}
 		return
 	}
-
 	log(fmt.Sprintf("%s is not installed. Installing...", cmdName))
-
 	switch osID {
 	case "ubuntu", "debian":
 		runCmdSudo("apt-get", "update")
@@ -197,13 +205,11 @@ func ensureCommandInstalled(osID, cmdName string) {
 	case "fedora":
 		runCmdSudo("dnf", "install", "-y", cmdName)
 	case "centos", "redhat":
-		// for epel-based packages like jq or rsync, you might need epel-release
 		if cmdName == "jq" || cmdName == "rsync" {
 			runCmdSudo("yum", "install", "-y", "epel-release")
 		}
 		runCmdSudo("yum", "install", "-y", cmdName)
 	case "darwin":
-		// brew typically doesn't need sudo
 		runCmd("brew", "install", cmdName)
 	default:
 		log("Unsupported OS for automatic installation of " + cmdName)
@@ -211,7 +217,7 @@ func ensureCommandInstalled(osID, cmdName string) {
 	}
 }
 
-// ensureAnsible checks if ansible-playbook is installed, and tries to install it if not.
+// ensureAnsible checks if ansible-playbook is installed and installs it if not.
 func ensureAnsible(osID string) {
 	_, err := exec.LookPath("ansible-playbook")
 	if err == nil {
@@ -221,7 +227,6 @@ func ensureAnsible(osID string) {
 		return
 	}
 	log("Ansible not found. Installing...")
-
 	switch osID {
 	case "ubuntu", "debian":
 		runCmdSudo("apt-get", "update")
@@ -232,16 +237,14 @@ func ensureAnsible(osID string) {
 		runCmdSudo("yum", "install", "-y", "epel-release")
 		runCmdSudo("yum", "install", "-y", "ansible")
 	case "darwin":
-		// brew typically doesn't require sudo
 		runCmd("brew", "install", "ansible")
 	default:
-		// fallback to pip
 		log("Falling back to pip-based Ansible installation...")
 		runCmd("pip", "install", "--user", "ansible")
 	}
 }
 
-// ensureGh checks if the GitHub CLI is installed, otherwise installs it.
+// ensureGh checks if the GitHub CLI is installed and installs it if not.
 func ensureGh(osID string) {
 	_, err := exec.LookPath("gh")
 	if err == nil {
@@ -251,27 +254,22 @@ func ensureGh(osID string) {
 		return
 	}
 	log("GitHub CLI not found. Installing...")
-
 	switch osID {
 	case "darwin":
-		// Homebrew doesn't require sudo
 		runCmd("brew", "install", "gh")
 	case "ubuntu", "debian":
-		// The lines below won't work exactly as intended with runCmd + pipe,
-		// but we illustrate the idea.
-		// A better approach is to run a shell with `sh -c "curl ... | sudo dd ..."`
-		runCmdSudo("curl", "-fsSL", "https://cli.github.com/packages/githubcli-archive-keyring.gpg", "|",
-			"sudo", "dd", "of=/usr/share/keyrings/githubcli-archive-keyring.gpg")
+		if err := runCmdSudo("bash", "-c", "curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg"); err != nil {
+			log("Error installing GitHub CLI key: " + err.Error())
+			os.Exit(1)
+		}
 		runCmdSudo("chmod", "go+r", "/usr/share/keyrings/githubcli-archive-keyring.gpg")
-		archCmd := exec.Command("dpkg", "--print-architecture")
-		archBytes, err := archCmd.Output()
+		archBytes, err := exec.Command("dpkg", "--print-architecture").Output()
 		if err != nil {
 			log("Failed to detect architecture.")
 			os.Exit(1)
 		}
 		arch := strings.TrimSpace(string(archBytes))
 		debRepoLine := fmt.Sprintf("deb [arch=%s signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main", arch)
-		// echo the line into /etc/apt/sources.list.d/github-cli.list
 		runCmdSudo("bash", "-c", fmt.Sprintf("echo '%s' > /etc/apt/sources.list.d/github-cli.list", debRepoLine))
 		runCmdSudo("apt-get", "update")
 		runCmdSudo("apt-get", "install", "-y", "gh")
@@ -282,12 +280,12 @@ func ensureGh(osID string) {
 		runCmdSudo("yum-config-manager", "--add-repo", "https://cli.github.com/packages/rpm/gh-cli.repo")
 		runCmdSudo("yum", "install", "-y", "gh")
 	default:
-		log("Unsupported OS for automatic GitHub CLI installation. Please install manually.")
+		log("Unsupported OS for GitHub CLI installation. Please install gh manually.")
 		os.Exit(1)
 	}
 }
 
-// ensureGhAuth checks if `gh auth status` is successful; if not, prompts for GH token.
+// ensureGhAuth checks if gh auth status is successful; if not, prompts for a token.
 func ensureGhAuth() {
 	err := exec.Command("gh", "auth", "status").Run()
 	if err == nil {
@@ -297,7 +295,6 @@ func ensureGhAuth() {
 		return
 	}
 	log("GitHub CLI is not authenticated.")
-
 	fmt.Print("Please enter your GitHub Personal Access Token: ")
 	reader := bufio.NewReader(os.Stdin)
 	token, _ := reader.ReadString('\n')
@@ -306,10 +303,7 @@ func ensureGhAuth() {
 		log("No token provided, aborting.")
 		os.Exit(1)
 	}
-	// Temporarily export GH_TOKEN for this process environment
 	os.Setenv("GH_TOKEN", token)
-
-	// Check again
 	err = exec.Command("gh", "auth", "status").Run()
 	if err != nil {
 		log("GitHub CLI authentication failed even after setting GH_TOKEN. Aborting.")
@@ -317,7 +311,7 @@ func ensureGhAuth() {
 	}
 }
 
-// manageSSHKeyForGitHub generates an ECDSA key if it doesn't exist and ensures it's registered with GH.
+// manageSSHKeyForGitHub generates an ECDSA SSH key if it doesn't exist and ensures it's registered with GitHub.
 func manageSSHKeyForGitHub() {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -345,7 +339,7 @@ func manageSSHKeyForGitHub() {
 	}
 	publicKey := string(pubBytes)
 
-	// Test SSH access
+	// Test SSH access to GitHub using the local key.
 	sshTest := exec.Command("ssh", "-T", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=no", "-i", keyPath, "git@github.com")
 	out, err := sshTest.CombinedOutput()
 	outStr := strings.ToLower(string(out))
@@ -356,13 +350,12 @@ func manageSSHKeyForGitHub() {
 	}
 	log("SSH key access denied. Attempting to update GitHub keys...")
 
-	// Attempt to remove old key with "keyserver" title
+	// Attempt to remove old key with "keyserver" title.
 	delOldCmd := exec.Command("gh", "api", "-H", "Accept: application/vnd.github+json",
 		"-H", "X-GitHub-Api-Version: 2022-11-28",
 		"/user/keys")
 	outList, err := delOldCmd.Output()
 	if err == nil {
-		// parse JSON output
 		keyID := findKeyIDForTitle(string(outList), "keyserver")
 		if keyID != "" {
 			log("Deleting old GitHub key with ID: " + keyID)
@@ -372,7 +365,6 @@ func manageSSHKeyForGitHub() {
 		}
 	}
 
-	// Add new key
 	log("Adding new SSH key to GitHub...")
 	addCmd := exec.Command("gh", "api", "--method", "POST", "-H", "Accept: application/vnd.github+json",
 		"-H", "X-GitHub-Api-Version: 2022-11-28",
@@ -385,18 +377,10 @@ func manageSSHKeyForGitHub() {
 // findKeyIDForTitle is a helper to parse JSON from `gh api /user/keys` output
 // and return the `.id` for a given `.title`.
 func findKeyIDForTitle(jsonStr, title string) string {
-	// This is a naive approach. A robust approach would unmarshal JSON properly.
-	lines := strings.Split(jsonStr, "\n")
-	for _, l := range lines {
-		if strings.Contains(l, "\"title\": \""+title+"\"") {
-			// We'll parse next or previous lines for "id": 12345
-			// Or do a small state machine
-			idRegex := regexp.MustCompile(`"id":\s*([0-9]+)`)
-			m := idRegex.FindStringSubmatch(jsonStr)
-			if len(m) == 2 {
-				return m[1]
-			}
-		}
+	idRegex := regexp.MustCompile(`"id":\s*([0-9]+).*"title":\s*"` + regexp.QuoteMeta(title) + `"`)
+	matches := idRegex.FindStringSubmatch(jsonStr)
+	if len(matches) >= 2 {
+		return matches[1]
 	}
 	return ""
 }
@@ -412,7 +396,6 @@ func fetchGithubPrivateKey() {
 	keyDest := filepath.Join(homeDir, ".ssh", "id_ecdsa_github")
 
 	tmpDest := "/tmp/github_key"
-	// Example: "rsync://192.168.1.8/keys/id_ecdsa_github"
 	rsyncSrc := "rsync://192.168.1.8/keys/id_ecdsa_github"
 
 	const maxRetries = 5
@@ -430,7 +413,6 @@ func fetchGithubPrivateKey() {
 		time.Sleep(sleepSeconds * time.Second)
 	}
 
-	// Compare or copy to .ssh
 	contentTmp, err := os.ReadFile(tmpDest)
 	if err != nil {
 		log("Error reading temp GitHub key: " + err.Error())
@@ -481,10 +463,8 @@ func runAnsiblePull() {
 func setupMiseInstallService() {
 	log("Setting up one-shot systemd service for 'mise install' after reboot...")
 
-	// Identify the user that invoked sudo (or the current user).
 	targetUser := os.Getenv("SUDO_USER")
 	if targetUser == "" {
-		// If we aren't running via sudo, fallback to current user
 		usr, err := user.Current()
 		if err != nil {
 			log("Cannot determine current user.")
@@ -493,7 +473,6 @@ func setupMiseInstallService() {
 		targetUser = usr.Username
 	}
 
-	// We can find the home directory for that user:
 	u, err := user.Lookup(targetUser)
 	if err != nil {
 		log("Cannot look up user " + targetUser + ": " + err.Error())
@@ -518,14 +497,12 @@ WantedBy=multi-user.target
 
 	servicePath := "/etc/systemd/system/mise-install-once.service"
 
-	// Write service file to a temp location
 	err = os.WriteFile("/tmp/mise-install-once.service", []byte(serviceContent), 0644)
 	if err != nil {
 		log("Failed to write temp systemd service file: " + err.Error())
 		os.Exit(1)
 	}
 
-	// Move service file with sudo
 	if err := runCmdSudo("mv", "/tmp/mise-install-once.service", servicePath); err != nil {
 		log("Failed to move service file: " + err.Error())
 		os.Exit(1)
@@ -542,6 +519,3 @@ WantedBy=multi-user.target
 		log("Failed to reboot: " + err.Error())
 	}
 }
-
-// findKeyIDForTitle is a helper to parse JSON from `gh api /user/keys` output
-// and return the `.id` for a given `.title`. (Defined above.)
