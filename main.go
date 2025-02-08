@@ -152,17 +152,22 @@ func ensureHomebrew() {
 		}
 		return
 	}
-	log("Homebrew is not installed. Installing Homebrew...")
+	log("Homebrew is not installed. Attempting to install Homebrew...")
 
-	// Set NONINTERACTIVE=1 so that the install script doesn't prompt.
-	// Note: Homebrew still requires that the current user has admin privileges.
-	cmd := exec.Command("/bin/bash", "-c", "NONINTERACTIVE=1 curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | /bin/bash")
+	// Pre-cache sudo credentials.
+	if err := runCmd("sudo", "-v"); err != nil {
+		log("Failed to get sudo credentials: " + err.Error())
+		os.Exit(1)
+	}
+
+	// Run the official Homebrew installer in non-interactive CI mode.
+	// Setting both NONINTERACTIVE=1 and CI=1 may help suppress prompts.
+	cmd := exec.Command("/bin/bash", "-c", "NONINTERACTIVE=1 CI=1 curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | /bin/bash")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-
 	if err := cmd.Run(); err != nil {
 		log("Failed to install Homebrew: " + err.Error())
-		log("Please ensure that the current user has administrator privileges on macOS and proper sudo access.")
+		log("Please ensure your user has the necessary sudo privileges and try again, or install Homebrew manually.")
 		os.Exit(1)
 	}
 }
