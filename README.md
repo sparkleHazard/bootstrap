@@ -82,7 +82,7 @@ Contributions are welcome! Please submit issues or pull requests for:
 
 For major changes, please open an issue first to discuss your ideas.
 
-## Release Process - Current release v1.0.2
+## Release Process - Current release v1.0.0
 
 Our project follows [Semantic Versioning](https://semver.org/). Version numbers follow the format `vMAJOR.MINOR.PATCH`.
 
