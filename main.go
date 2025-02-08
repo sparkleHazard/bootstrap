@@ -153,12 +153,16 @@ func ensureHomebrew() {
 		return
 	}
 	log("Homebrew is not installed. Installing Homebrew...")
-	// Pipe the output of curl directly into bash.
-	cmd := exec.Command("/bin/bash", "-c", "curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | /bin/bash")
+
+	// Set NONINTERACTIVE=1 so that the install script doesn't prompt.
+	// Note: Homebrew still requires that the current user has admin privileges.
+	cmd := exec.Command("/bin/bash", "-c", "NONINTERACTIVE=1 curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | /bin/bash")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+
 	if err := cmd.Run(); err != nil {
 		log("Failed to install Homebrew: " + err.Error())
+		log("Please ensure that the current user has administrator privileges on macOS and proper sudo access.")
 		os.Exit(1)
 	}
 }
