@@ -4,8 +4,6 @@
 # This script downloads the correct bootstrap binary for the current machine's OS and architecture
 # from GitHub Releases, performs pre-flight checks, makes it executable, and then executes it.
 #
-# It also supports a new option to print a list of available roles by querying the GitHub API.
-#
 # Usage:
 #   curl -sSL https://your-domain.com/bootstrap-wrapper.sh | bash -s -- [options] -- [arguments to bootstrap binary]
 #
@@ -87,12 +85,10 @@ if [ "$VERBOSE" == "true" ]; then
   echo "Arguments for bootstrap binary: $@"
 fi
 
-# If --list-roles is passed, query GitHub API for roles.
+# If the user requested the list of available roles, query GitHub API and exit.
 if [ "$LIST_ROLES" == "true" ]; then
   echo "Querying available roles from GitHub..."
-  # The API endpoint for listing the contents of the 'roles' directory.
   API_URL="https://api.github.com/repos/sparkleHazard/ansible/contents/roles"
-  # Query the API and use jq to filter for directories.
   if command -v jq >/dev/null 2>&1; then
     ROLES=$(curl -sSL "$API_URL" | jq -r '.[] | select(.type=="dir") | .name' | sort | tr '\n' ', ')
     echo "Available roles: ${ROLES%, }"
@@ -115,11 +111,11 @@ else
   exit 1
 fi
 
-# Determine the architecture.
+# Determine the architecture and map x86_64 to amd64.
 ARCH=$(uname -m)
 case "$ARCH" in
 x86_64)
-  ARCH="x86_64"
+  ARCH="amd64"
   ;;
 arm64 | aarch64)
   ARCH="arm64"
@@ -144,11 +140,7 @@ echo "Detected architecture: $ARCH"
 BINARY_URL="https://github.com/sparkleHazard/bootstrap/releases/latest/download/bootstrap-${varOS}-${ARCH}"
 
 # Destination for the downloaded binary.
-if [ "$OS_TYPE" = "Darwin" ]; then
-  DEST="$HOME/bootstrap"
-elif [ "$OS_TYPE" = "Linux" ]; then
-  DEST="/tmp/bootstrap"
-fi
+DEST="/tmp/bootstrap"
 
 echo "Downloading bootstrap binary from ${BINARY_URL}..."
 curl -sSL "$BINARY_URL" -o "$DEST"
@@ -158,6 +150,7 @@ if [ ! -f "$DEST" ]; then
   exit 1
 fi
 
+# Optionally, add checksum verification here.
 echo "Making bootstrap binary executable..."
 chmod +x "$DEST"
 
