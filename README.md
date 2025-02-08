@@ -82,6 +82,42 @@ Contributions are welcome! Please submit issues or pull requests for:
 
 For major changes, please open an issue first to discuss your ideas.
 
+## Release Process
+
+Our project follows [Semantic Versioning](https://semver.org/). Version numbers follow the format `vMAJOR.MINOR.PATCH`.
+
+- **MAJOR:** Increment when you make incompatible API changes.
+- **MINOR:** Increment when you add functionality in a backward-compatible manner.
+- **PATCH:** Increment when you make backward-compatible bug fixes.
+
+### Tagging a Release
+
+1. Make sure your local repository is up to date:
+
+   ```bash
+   git pull
+   ```
+
+1. Tag the current commit:
+
+   ```bash
+   git tag -a v1.0.0 -m "Release version 1.0.0"
+   ```
+
+1. Push the tag to GitHub:
+
+   ```bash
+   git push origin v1.0.0
+   ```
+
+### Changelog
+
+Please update the CHANGELOG.md with a summary of changes for each release. We follow [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
+
+### Continuous Integration and Deployment
+
+When a new version tag is pushed, our CI/CD pipeline automatically builds the binaries for all supported platforms and creates a GitHub Release with the release assets and changelog. Refer to our GitHub Actions workflows for further details.
+
 ### License
 
 This project is licensed under the MIT License. See the LICENSE file for details.
