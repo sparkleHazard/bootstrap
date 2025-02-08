@@ -144,7 +144,11 @@ echo "Detected architecture: $ARCH"
 BINARY_URL="https://github.com/sparkleHazard/bootstrap/releases/latest/download/bootstrap-${varOS}-${ARCH}"
 
 # Destination for the downloaded binary.
-DEST="/tmp/bootstrap"
+if [ "$OS_TYPE" = "Darwin" ]; then
+  DEST="$HOME/bootstrap"
+elif [ "$OS_TYPE" = "Linux" ]; then
+  DEST="/tmp/bootstrap"
+fi
 
 echo "Downloading bootstrap binary from ${BINARY_URL}..."
 curl -sSL "$BINARY_URL" -o "$DEST"
