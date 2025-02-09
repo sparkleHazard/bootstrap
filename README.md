@@ -72,6 +72,22 @@ Bootstrap is designed to integrate seamlessly with Ansible:
 
 For more details on how to integrate Ansible with your provisioning, see the Ansible documentation.
 
+### Workflow
+
+```mermaid
+flowchart TD
+    A[User triggers bootstrap via "curl | bash"] --> B[Download and execute bootstrap binary]
+    B --> C[Parse arguments & perform pre-flight checks]
+    C --> D{Is role keyserver?}
+    D -- Yes --> E[Manage GitHub SSH key: generate/register key]
+    D -- No --> F[Fetch GitHub SSH private key via rsync]
+    E --> G[Run ansible-pull to apply configuration]
+    F --> G
+    G --> H{--mise-install flag set?}
+    H -- Yes --> I[Create one-shot systemd service & reboot]
+    H -- No --> J[End bootstrap process]
+```
+
 ### Contributing
 
 Contributions are welcome! Please submit issues or pull requests for:
