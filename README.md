@@ -76,16 +76,17 @@ For more details on how to integrate Ansible with your provisioning, see the Ans
 
 ```mermaid
 flowchart TD
-    A[User triggers bootstrap via "curl | bash"] --> B[Download and execute bootstrap binary]
-    B --> C[Parse arguments & perform pre-flight checks]
-    C --> D{Is role keyserver?}
-    D -- Yes --> E[Manage GitHub SSH key: generate/register key]
-    D -- No --> F[Fetch GitHub SSH private key via rsync]
-    E --> G[Run ansible-pull to apply configuration]
-    F --> G
-    G --> H{--mise-install flag set?}
-    H -- Yes --> I[Create one-shot systemd service & reboot]
-    H -- No --> J[End bootstrap process]
+    A[User triggers bootstrap via curl piped into bash] --> B[Download and execute bootstrap binary]
+    B --> C[Parse command-line arguments]
+    C --> D[Ensure ~/.ssh exists and prerequisites are installed]
+    D --> E{Determine role}
+    E -- keyserver --> F[Generate and register GitHub SSH key]
+    E -- other --> G[Fetch GitHub SSH key via rsync]
+    F --> H[Run ansible-pull for keyserver configuration]
+    G --> I[Run ansible-pull for standard configuration]
+    H --> J[Optionally set up one-shot service for 'mise install']
+    I --> J
+    J --> K[End bootstrapping process]
 ```
 
 ### Contributing
