@@ -14,6 +14,7 @@ import (
 )
 
 const (
+	gitHubKeyURL  = "192.168.1.8/keys/id_ecdsa_github"
 	repoURL       = "git@github.com:sparkleHazard/ansible.git"
 	vaultPassFile = ".vault_pass.txt"
 	ansibleSite   = "ansible/site.yml"
@@ -405,7 +406,7 @@ func fetchGithubPrivateKey() {
 	keyDest := filepath.Join(homeDir, ".ssh", "id_ecdsa_github")
 
 	tmpDest := "/tmp/github_key"
-	rsyncSrc := "rsync://192.168.1.8/keys/id_ecdsa_github"
+	rsyncSrc := "rsync://" + gitHubKeyURL
 
 	const maxRetries = 5
 	const sleepSeconds = 10
