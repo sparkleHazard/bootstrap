@@ -154,6 +154,14 @@ fi
 echo "Making bootstrap binary executable..."
 chmod +x "$DEST"
 
-echo "Launching bootstrap binary..."
-# Execute the binary with any arguments passed to the wrapper.
-exec "$DEST" "$@"
+# Automatically forward the wrapper's options to the bootstrap binary.
+BOOTSTRAP_ARGS="-role ${ROLE}"
+if [ "$VERBOSE" = "true" ]; then
+  BOOTSTRAP_ARGS="$BOOTSTRAP_ARGS -verbose"
+fi
+if [ "$MISE_INSTALL" = "true" ]; then
+  BOOTSTRAP_ARGS="$BOOTSTRAP_ARGS -mise-install"
+fi
+
+echo "Forwarding bootstrap binary arguments: $BOOTSTRAP_ARGS $@"
+exec "$DEST" $BOOTSTRAP_ARGS "$@"
