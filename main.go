@@ -460,6 +460,7 @@ func runAnsiblePull() {
 		"--extra-vars", fmt.Sprintf("host_role=%s", role),
 		"--private-key", keyPath,
 		"--accept-host-key",
+		"--submodules",
 		"--vault-password-file", vaultPath,
 		ansibleSite,
 	}
