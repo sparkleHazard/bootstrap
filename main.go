@@ -354,7 +354,7 @@ func manageSSHKeyForGitHub() {
 	out, err := sshTest.CombinedOutput()
 	outStr := strings.ToLower(string(out))
 
-	if err == nil && strings.Contains(outStr, "successfully authenticated") {
+	if strings.Contains(outStr, "successfully authenticated") {
 		log("SSH key is accepted by GitHub.")
 		return
 	}
@@ -387,7 +387,7 @@ func manageSSHKeyForGitHub() {
 // findKeyIDForTitle is a helper to parse JSON from `gh api /user/keys` output
 // and return the `.id` for a given `.title`.
 func findKeyIDForTitle(jsonStr, title string) string {
-	idRegex := regexp.MustCompile(`"id":\s*([0-9]+).*"title":\s*"` + regexp.QuoteMeta(title) + `"`)
+	idRegex := regexp.MustCompile(`"id":\s*([0-9]+).*?"title":\s*"` + regexp.QuoteMeta(title) + `"`)
 	matches := idRegex.FindStringSubmatch(jsonStr)
 	if len(matches) >= 2 {
 		return matches[1]
