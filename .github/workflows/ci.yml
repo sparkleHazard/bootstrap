@@ -98,12 +98,17 @@ jobs:
     if: github.event_name == 'push'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          ref: main # Ensure we're on the main branch
+          persist-credentials: true # So that pushing changes works
 
       - name: Generate available roles documentation
         run: |
           # Query the GitHub API for the contents of the 'roles' directory in the ansible repo.
-          curl -sSL "https://api.github.com/repos/sparkleHazard/ansible/contents/roles" | jq -r '.[].name' | sort > ROLES.md
+          curl -sSL "https://api.github.com/repos/sparkleHazard/ansible/contents/ansible/roles" | jq -r '.[].name' | sort > ROLES.md
+          echo "Updated ROLES.md content:"
+          cat ROLES.md
 
       - name: Commit and push updated ROLES.md
         env:
@@ -117,7 +122,7 @@ jobs:
           if [ -n "$(git status --porcelain ROLES.md)" ]; then
             git add ROLES.md
             git commit -m "Update available roles documentation"
-            git push
+            git push origin main
           else
             echo "ROLES.md is up-to-date."
           fi
